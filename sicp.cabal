@@ -1,0 +1,78 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 7297ae808660f6b4d37e3a9cae9e9ec0c16b2b5bac2015e881d2a61900f1bcfa
+
+name:           sicp
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/Github username here/sicp#readme>
+homepage:       https://github.com/Github username here/sicp#readme
+bug-reports:    https://github.com/Github username here/sicp/issues
+author:         Author name here
+maintainer:     Author email here
+copyright:      2019 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/Github username here/sicp
+
+library
+  exposed-modules:
+      Lib
+      LispEval
+  other-modules:
+      Paths_sicp
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , either
+    , megaparsec
+    , mtl
+    , text
+  default-language: Haskell2010
+
+executable sicp-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_sicp
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , either
+    , megaparsec
+    , mtl
+    , sicp
+    , text
+  default-language: Haskell2010
+
+test-suite sicp-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_sicp
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , either
+    , megaparsec
+    , mtl
+    , sicp
+    , text
+  default-language: Haskell2010
