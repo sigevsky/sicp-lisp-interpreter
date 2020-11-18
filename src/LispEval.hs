@@ -20,9 +20,10 @@ import Data.Dynamic
 data PrimitiveType = Unit |
   Numb Integer |
   Str String |
-  Bl Bool deriving (Eq, Generic, Show)
+  Bl Bool |
+  Lambda [String] LispAst deriving (Eq, Generic, Show)
 
-data BaseType = Primitive PrimitiveType | Lambda [String] LispAst deriving (Eq, Generic, Show)
+data ComposedType = 
 
 data SpecialForm =
   Define String LispAst |
@@ -32,13 +33,13 @@ data SpecialForm =
   If LispAst LispAst LispAst deriving (Eq, Generic, Show)
 
 data LispAst =
-  Const BaseType |
+  Const PrimitiveType |
   Var String |
   Sf SpecialForm |
   App LispAst [LispAst] deriving (Eq, Generic, Show)
 
 
-newtype Env = Env [M.Map String BaseType]
+newtype Env = Env [M.Map String PrimitiveType]
 
 newtype Eval env err a = Eval { runEval :: StateT env (ExceptT err IO) a }
   deriving (Functor, Applicative, Alternative, Monad, MonadPlus, MonadFix,
@@ -53,11 +54,11 @@ primitiveOps = M.fromList [
 
 applyPrimitive :: (String, Dynamic) -> [PrimitiveType] -> IO (Either String PrimitiveType)
 applyPrimitive (opName, op) [] = _
--- sequence $
+-- sequence $ 
    --                                maybeToRight ("Failed to apply primitive 0-operation" <> opName)
      ---                                           (fromDynamic op :: Maybe (IO PrimitiveType))
 
-type LispEval = Eval Env String BaseType
+type LispEval = Eval Env String PrimitiveType
 
 evalM :: LispAst -> LispEval
 evalM (Const v) = pure v
@@ -69,20 +70,20 @@ evalM (Var x) = do
 evalM (Sf (If cond th els)) = do
     evaluatedCond <- evalM cond
     case evaluatedCond of
-      Primitive (Bl b) -> evalM (if b then th else els)
+      Bl b -> evalM (if b then th else els)
       _ -> throwError "Provided condition is not of the type boolean"
 evalM (Sf (Define vname body)) = do
     evBody <- evalM body
     env  <- get
     put (defineInEnv vname evBody env)
-    return (Primitive Unit)
+    return Unit
 evalM (Sf (Assign vname body)) = do
     env <- get
     case lookupInEnv vname env of
       Just _ -> do
         evBody <- evalM body
         put (defineInEnv vname evBody env)
-        return (Primitive Unit)
+        return Unit
       _ -> throwError $ "Variable " <> vname <> " is not defined in the current environement"
 evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Const (Lambda bindings body))))
 evalM (Sf (Begin procs)) = reduce (>>) (evalM <$> procs)
@@ -90,19 +91,19 @@ evalM (App operator operands) = do
     evOpt <- evalM operator
     args  <- sequence (evalM <$> operands)
     case evOpt of
-      Primitive (Str optName) -> discardState $ applyM optName args
+      (Str optName) -> discardState $ applyM optName args
       _ -> throwError "Operator name has invalid type"
 
-applyM :: String -> [BaseType] -> LispEval
+applyM :: String -> [PrimitiveType] -> LispEval
 applyM opName ops = _
 
-lookupInEnv :: String -> Env -> Maybe BaseType
+lookupInEnv :: String -> Env -> Maybe PrimitiveType
 lookupInEnv x (Env []) = Nothing
 lookupInEnv x (Env (e:es)) = case M.lookup x e of
                    Just s -> Just s
                    Nothing -> lookupInEnv x (Env es)
 
-defineInEnv :: String -> BaseType -> Env -> Env
+defineInEnv :: String -> PrimitiveType -> Env -> Env
 defineInEnv s v (Env (e:es)) = Env (M.insert s v e:es)
 
 discardState f = do
