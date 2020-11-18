@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 7297ae808660f6b4d37e3a9cae9e9ec0c16b2b5bac2015e881d2a61900f1bcfa
+-- hash: fc8ffa03db95ab4eafa6c5a6e2452b753d37a4a8e6983d179e388660f5ed61ef
 
 name:           sicp
 version:        0.1.0.0
@@ -29,6 +29,8 @@ library
   exposed-modules:
       Lib
       LispEval
+      PrimitiveOps
+      Types
   other-modules:
       Paths_sicp
   hs-source-dirs:
@@ -37,6 +39,7 @@ library
       base >=4.7 && <5
     , containers
     , either
+    , ilist
     , megaparsec
     , mtl
     , text
@@ -53,6 +56,7 @@ executable sicp-exe
       base >=4.7 && <5
     , containers
     , either
+    , ilist
     , megaparsec
     , mtl
     , sicp
@@ -71,6 +75,7 @@ test-suite sicp-test
       base >=4.7 && <5
     , containers
     , either
+    , ilist
     , megaparsec
     , mtl
     , sicp

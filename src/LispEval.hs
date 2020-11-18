@@ -1,10 +1,7 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeApplications #-}
-
+{-# LANGUAGE LambdaCase #-}
 module LispEval where
 
-import GHC.Generics
 import qualified Data.Map as M
 import Data.Either.Combinators (maybeToRight)
 import Data.Foldable (foldl')
@@ -14,51 +11,39 @@ import Control.Applicative (Applicative, Alternative)
 import Control.Monad.Cont (MonadCont)
 import Control.Monad.State (MonadState, StateT (..), get, put)
 import Control.Monad.Writer (MonadWriter)
-import Data.List.NonEmpty as NL
+import qualified Data.List.NonEmpty as NL
 import Data.Dynamic
-
-data PrimitiveType = Unit |
-  Numb Integer |
-  Str String |
-  Bl Bool |
-  Lambda [String] LispAst deriving (Eq, Generic, Show)
-
-data ComposedType = 
-
-data SpecialForm =
-  Define String LispAst |
-  DefineProc String [String] LispAst |
-  Assign String LispAst |
-  Begin (NL.NonEmpty LispAst) |
-  If LispAst LispAst LispAst deriving (Eq, Generic, Show)
-
-data LispAst =
-  Const PrimitiveType |
-  Var String |
-  Sf SpecialForm |
-  App LispAst [LispAst] deriving (Eq, Generic, Show)
-
+import PrimitiveOps (applyPrimitive)
+import Types
 
 newtype Env = Env [M.Map String PrimitiveType]
 
-newtype Eval env err a = Eval { runEval :: StateT env (ExceptT err IO) a }
+newtype EvalT env err a = EvalT { runEval :: StateT env (ExceptT err IO) a }
   deriving (Functor, Applicative, Alternative, Monad, MonadPlus, MonadFix,
                 MonadIO, MonadError err, MonadState env)
 
-primitiveOps :: M.Map (String, Int) Dynamic
-primitiveOps = M.fromList [
-    (("print", 1), toDyn (fmap (const Unit) . putStrLn)),
-    (("readLn", 1), toDyn (fmap Str readLn)),
-    (("+", 2), toDyn (\a b -> return @IO $ Numb (a + b)))
-  ]
+type LispEval = EvalT Env EvalError PrimitiveType
 
-applyPrimitive :: (String, Dynamic) -> [PrimitiveType] -> IO (Either String PrimitiveType)
-applyPrimitive (opName, op) [] = _
--- sequence $ 
-   --                                maybeToRight ("Failed to apply primitive 0-operation" <> opName)
-     ---                                           (fromDynamic op :: Maybe (IO PrimitiveType))
+data ApplyError = NoDefProcedure String Env |
+  ProcApplyError String |
+  IncorrectNumOfArgs String Int Int |
+  PrimProcApplyErr PrimProcApplyError
+data EvalError = VarNotFound String Env |
+  IncorrectCondType |
+  InvalidOperatorType PrimitiveType |
+  ApError ApplyError
 
-type LispEval = Eval Env String PrimitiveType
+instance Show EvalError where
+  show (VarNotFound x env) = "Failed to find variable " <> x <> " in the current env"
+  show IncorrectCondType = "Provided condition is not of the type boolean"
+  show (InvalidOperatorType pt) = "Operator name has invalid type " <> show pt
+  show (ApError e) = show e
+
+instance Show ApplyError where
+  show (ProcApplyError opName) = opName <> " is not a procedure"
+  show (NoDefProcedure opName env) = "No procedure " <> opName <> " defined in the current scope"
+  show (IncorrectNumOfArgs opName passed required) = "Incorrect number of arguments passed to " <> opName <> " " <> show passed <> " instead of " <> show required
+  show (PrimProcApplyErr s) = show s
 
 evalM :: LispAst -> LispEval
 evalM (Const v) = pure v
@@ -66,12 +51,12 @@ evalM (Var x) = do
   env <- get
   case lookupInEnv x env of
     Just v -> pure v
-    Nothing -> throwError $ "Failed to lookup variable " <> x <> " in the current env"
+    Nothing -> throwError (VarNotFound x env)
 evalM (Sf (If cond th els)) = do
     evaluatedCond <- evalM cond
     case evaluatedCond of
       Bl b -> evalM (if b then th else els)
-      _ -> throwError "Provided condition is not of the type boolean"
+      _ -> throwError IncorrectCondType
 evalM (Sf (Define vname body)) = do
     evBody <- evalM body
     env  <- get
@@ -84,7 +69,7 @@ evalM (Sf (Assign vname body)) = do
         evBody <- evalM body
         put (defineInEnv vname evBody env)
         return Unit
-      _ -> throwError $ "Variable " <> vname <> " is not defined in the current environement"
+      _ -> throwError $ VarNotFound vname env
 evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Const (Lambda bindings body))))
 evalM (Sf (Begin procs)) = reduce (>>) (evalM <$> procs)
 evalM (App operator operands) = do
@@ -92,10 +77,28 @@ evalM (App operator operands) = do
     args  <- sequence (evalM <$> operands)
     case evOpt of
       (Str optName) -> discardState $ applyM optName args
-      _ -> throwError "Operator name has invalid type"
+      _ -> throwError $ InvalidOperatorType evOpt
 
 applyM :: String -> [PrimitiveType] -> LispEval
-applyM opName ops = _
+applyM opName ops = catchError applyPrimOp handler
+  where
+    applyPrimOp = EvalT . lift $ withExceptT (ApError . PrimProcApplyErr) (applyPrimitive opName ops)
+    handler = \case
+      (ApError (PrimProcApplyErr (ProcedureNotFound v))) -> do
+        env <- get
+        case lookupInEnv opName env of
+          Just op -> case op of
+            (Lambda bindings body) | length bindings == length ops -> do
+              env <- get
+              let newFrame = M.fromList $ zip bindings ops
+              put $ appendFrame newFrame env
+              evalM body
+            (Lambda bindings _) | length bindings /= length ops -> throwError . ApError $ IncorrectNumOfArgs opName (length ops) (length bindings)
+            _ -> throwError . ApError . ProcApplyError $ opName
+          Nothing -> throwError . ApError $ NoDefProcedure opName env
+      v -> throwError v
+
+liftError f (EvalT (StateT st)) = EvalT (StateT (withExceptT f . st))
 
 lookupInEnv :: String -> Env -> Maybe PrimitiveType
 lookupInEnv x (Env []) = Nothing
@@ -105,6 +108,9 @@ lookupInEnv x (Env (e:es)) = case M.lookup x e of
 
 defineInEnv :: String -> PrimitiveType -> Env -> Env
 defineInEnv s v (Env (e:es)) = Env (M.insert s v e:es)
+
+appendFrame :: M.Map String PrimitiveType -> Env -> Env
+appendFrame m (Env ms) = Env (m:ms)
 
 discardState f = do
   s <- get
