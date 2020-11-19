@@ -16,34 +16,11 @@ import Data.Dynamic
 import PrimitiveOps (applyPrimitive)
 import Types
 
-newtype Env = Env [M.Map String PrimitiveType]
-
 newtype EvalT env err a = EvalT { runEval :: StateT env (ExceptT err IO) a }
   deriving (Functor, Applicative, Alternative, Monad, MonadPlus, MonadFix,
                 MonadIO, MonadError err, MonadState env)
 
 type LispEval = EvalT Env EvalError PrimitiveType
-
-data ApplyError = NoDefProcedure String Env |
-  ProcApplyError String |
-  IncorrectNumOfArgs String Int Int |
-  PrimProcApplyErr PrimProcApplyError
-data EvalError = VarNotFound String Env |
-  IncorrectCondType |
-  InvalidOperatorType PrimitiveType |
-  ApError ApplyError
-
-instance Show EvalError where
-  show (VarNotFound x env) = "Failed to find variable " <> x <> " in the current env"
-  show IncorrectCondType = "Provided condition is not of the type boolean"
-  show (InvalidOperatorType pt) = "Operator name has invalid type " <> show pt
-  show (ApError e) = show e
-
-instance Show ApplyError where
-  show (ProcApplyError opName) = opName <> " is not a procedure"
-  show (NoDefProcedure opName env) = "No procedure " <> opName <> " defined in the current scope"
-  show (IncorrectNumOfArgs opName passed required) = "Incorrect number of arguments passed to " <> opName <> " " <> show passed <> " instead of " <> show required
-  show (PrimProcApplyErr s) = show s
 
 evalM :: LispAst -> LispEval
 evalM (Const v) = pure v

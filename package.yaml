@@ -21,12 +21,14 @@ description:         Please see the README on GitHub at <https://github.com/Gith
 
 dependencies:
 - base >= 4.7 && < 5
-- text
 - megaparsec
 - containers
 - either
 - mtl
 - ilist
+- text
+- parser-combinators
+- shower
 
 library:
   source-dirs: src

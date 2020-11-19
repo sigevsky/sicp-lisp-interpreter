@@ -12,11 +12,15 @@ primitiveOps :: M.Map (String, Int) Dynamic
 primitiveOps = M.fromList [
     (("print", 1), toDyn printP),
     (("readLn", 0), toDyn readLnP),
-    (("+", 2), toDyn additionP)
+    (("+", 2), toDyn additionP),
+    (("*", 2), toDyn multP)
   ]
 
 additionP (Numb a) (Numb b) = Just . return @IO . Numb $ (a + b)
 additionP _ _ = Nothing
+
+multP (Numb a) (Numb b) = Just . return @IO . Numb $ (a * b)
+multP _ _ = Nothing
 
 readLnP = Just $ Str <$> readLn @String
 
