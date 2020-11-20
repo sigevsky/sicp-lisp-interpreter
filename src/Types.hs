@@ -7,24 +7,43 @@ import Data.Dynamic
 import Data.List.NonEmpty as NL
 import qualified Data.Map as M
 import Data.List (intercalate, foldl')
-data PrimitiveType = Unit |
+
+data RtProc =
+  PrimProc String Int |
+  Closure [String] (NL.NonEmpty LispAst) Env deriving (Generic, Typeable)
+
+data RtType =
+  Unit |
   Numb Int |
   Str String |
   Bl Bool |
-  Lambda [String] (NL.NonEmpty LispAst) deriving (Eq, Generic, Show, Typeable)
+  Proc RtProc deriving (Eq, Generic, Show, Typeable)
 
-data SpecialForm =
+primitiveToRuntimeType :: PrimitiveAst -> RtType
+primitiveToRuntimeType UnitAst = Unit
+primitiveToRuntimeType (NumbAst n) = Numb n
+primitiveToRuntimeType (StrAst s) = Str s
+primitiveToRuntimeType (BlAst b) = Bl b
+
+data PrimitiveAst =
+  UnitAst |
+  NumbAst Int |
+  StrAst String |
+  BlAst Bool deriving (Eq, Generic, Show, Typeable)
+
+data SpecialFormAst =
   Define String LispAst |
   DefineProc String [String] (NL.NonEmpty LispAst) |
   Assign String LispAst |
   Begin (NL.NonEmpty LispAst) |
   Let (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
+  Lambda [String] (NL.NonEmpty LispAst) |
   If LispAst LispAst LispAst deriving (Eq, Generic, Show, Typeable)
 
 data LispAst =
-  Const PrimitiveType |
+  Const PrimitiveAst |
   Var String |
-  Sf SpecialForm |
+  Sf SpecialFormAst |
   App LispAst [LispAst] deriving (Eq, Generic, Show, Typeable)
 
 data PrimProcApplyError =
@@ -33,7 +52,7 @@ data PrimProcApplyError =
   InvalidProcedure String |
   FailedToApplyArg Int String
 
-newtype Env = Env [M.Map String PrimitiveType]
+newtype Env = Env [M.Map String RtType] deriving (Eq, Generic, Typeable)
 
 data ApplyError = NoDefProcedure String Env |
   ProcApplyError String |
@@ -41,11 +60,19 @@ data ApplyError = NoDefProcedure String Env |
   PrimProcApplyErr PrimProcApplyError
 data EvalError = VarNotFound String Env |
   IncorrectCondType |
-  InvalidOperatorType PrimitiveType |
+  InvalidOperatorType RtType |
   ApError ApplyError
 
 instance Show Env where
   show (Env e) = foldl' (\s env -> ("|" <> intercalate ", " (M.keys env) <> "|") ++ s) "" e
+
+instance Show RtProc where
+  show Closure {} = "<procedure>"
+  show (PrimProc name _) =  "<" <> name <> "-primitive-procedure>"
+
+instance Eq RtProc where
+  Closure {} == Closure {} = False
+  (PrimProc nm1 argNum1) == (PrimProc nm2 argNum2) = nm1 == nm2 && argNum1 == argNum2
 
 instance Show EvalError where
   show (VarNotFound x env) = "Failed to find variable '" <> x <> "' in the current env " <> show env

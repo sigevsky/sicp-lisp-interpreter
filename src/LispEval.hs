@@ -9,21 +9,21 @@ import Control.Monad
 import Control.Monad.Except
 import Control.Applicative (Applicative, Alternative)
 import Control.Monad.Cont (MonadCont)
-import Control.Monad.State (MonadState, StateT (..), get, put)
+import Control.Monad.State (MonadState, StateT (..), get, put, gets)
 import Control.Monad.Writer (MonadWriter)
 import qualified Data.List.NonEmpty as NL
 import Data.Dynamic
-import PrimitiveOps (applyPrimitive)
+import PrimitiveOps (applyPrimitive, primitivesOps)
 import Types
 
 newtype EvalT env err a = EvalT { runEval :: StateT env (ExceptT err IO) a }
   deriving (Functor, Applicative, Alternative, Monad, MonadPlus, MonadFix,
                 MonadIO, MonadError err, MonadState env)
 
-type LispEval = EvalT Env EvalError PrimitiveType
+type LispEval = EvalT Env EvalError RtType
 
 evalM :: LispAst -> LispEval
-evalM (Const v) = pure v
+evalM (Const pt) = pure . primitiveToRuntimeType $ pt
 evalM (Var x) = do
   env <- get
   case lookupInEnv x env of
@@ -47,55 +47,47 @@ evalM (Sf (Assign vname body)) = do
         put (defineInEnv vname evBody env)
         return Unit
       _ -> throwError $ VarNotFound vname env
-      
-evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Const (Lambda bindings body))))
+
+evalM (Sf (Lambda bindings body)) = gets (Proc . Closure bindings body)
+evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Sf (Lambda bindings body))))
 evalM (Sf (Begin procs)) = evalMSequence procs
-evalM (Sf (Let argPairs body)) = evalM (App (Const (Lambda (toList $ fst <$> argPairs) body)) (toList $ snd <$> argPairs))
+evalM (Sf (Let argPairs body)) = evalM (App (Sf (Lambda (toList $ fst <$> argPairs) body)) (toList $ snd <$> argPairs))
 evalM (App operator operands) = do
     evOpt <- evalM operator
     args  <- sequence (evalM <$> operands)
     case evOpt of
-      (Str optName) -> discardState $ applyM optName args
+      Proc (Closure bindings body procEnv) | length bindings == length args -> discardState $ do
+          let newFrame = M.fromList $ zip bindings args
+          put $ appendFrame newFrame procEnv
+          evalMSequence body
+      Proc (PrimProc opName bindNum) | bindNum == length args -> applyPrimOp opName args
+      Proc (Closure bindings body procEnv)  | length bindings /= length args -> throwError . ApError $ IncorrectNumOfArgs "lambda" (length args) (length bindings)
+      Proc (PrimProc opName bindNum) | bindNum /= length args -> throwError . ApError $ IncorrectNumOfArgs opName (length args) bindNum
       _ -> throwError $ InvalidOperatorType evOpt
-
-applyM :: String -> [PrimitiveType] -> LispEval
-applyM opName ops = catchError applyPrimOp handler
   where
-    applyPrimOp = EvalT . lift $ withExceptT (ApError . PrimProcApplyErr) (applyPrimitive opName ops)
-    handler = \case
-      (ApError (PrimProcApplyErr (ProcedureNotFound v))) -> do
-        env <- get
-        case lookupInEnv opName env of
-          Just op -> case op of
-            (Lambda bindings body) | length bindings == length ops -> do
-              env <- get
-              let newFrame = M.fromList $ zip bindings ops
-              put $ appendFrame newFrame env
-              evalMSequence body
-            (Lambda bindings _) | length bindings /= length ops -> throwError . ApError $ IncorrectNumOfArgs opName (length ops) (length bindings)
-            _ -> throwError . ApError . ProcApplyError $ opName
-          Nothing -> throwError . ApError $ NoDefProcedure opName env
-      v -> throwError v
+    applyPrimOp opName ops = EvalT . lift $ withExceptT (ApError . PrimProcApplyErr) (applyPrimitive opName ops)
 
 liftError f (EvalT (StateT st)) = EvalT (StateT (withExceptT f . st))
 
 evalMSequence :: NL.NonEmpty LispAst -> LispEval
 evalMSequence procs = reduce (>>) (evalM <$> procs)
 
-evaluate :: LispAst -> IO (Either EvalError PrimitiveType)
-evaluate ast = runExceptT . fmap fst $ runStateT (runEval . evalM $ ast) (Env [M.empty])
+evaluate :: LispAst -> IO (Either EvalError RtType)
+evaluate ast = runExceptT . fmap fst $ runStateT (runEval . evalM $ ast) initialEnv
 
+initialEnv :: Env
+initialEnv = Env [M.fromList primitivesOps]
 
-lookupInEnv :: String -> Env -> Maybe PrimitiveType
+lookupInEnv :: String -> Env -> Maybe RtType
 lookupInEnv x (Env []) = Nothing
 lookupInEnv x (Env (e:es)) = case M.lookup x e of
                    Just s -> Just s
                    Nothing -> lookupInEnv x (Env es)
 
-defineInEnv :: String -> PrimitiveType -> Env -> Env
+defineInEnv :: String -> RtType -> Env -> Env
 defineInEnv s v (Env (e:es)) = Env (M.insert s v e:es)
 
-appendFrame :: M.Map String PrimitiveType -> Env -> Env
+appendFrame :: M.Map String RtType -> Env -> Env
 appendFrame m (Env ms) = Env (m:ms)
 
 discardState f = do

@@ -41,13 +41,12 @@ args = parens (many name)
 
 procBody = NE.some lispAstP
 
-primitiveTypeP :: Parser PrimitiveType
+primitiveTypeP :: Parser PrimitiveAst
 primitiveTypeP = choice [
-    Unit <$ symbol "Unit",
-    Numb <$> lexeme L.decimal,
-    Str <$> lexeme stringP,
-    Bl <$> lexeme boolP,
-    lambdaP
+    UnitAst <$ symbol "Unit",
+    NumbAst <$> lexeme L.decimal,
+    StrAst <$> lexeme stringP,
+    BlAst <$> lexeme boolP
   ]
 
 stringP :: Parser String
@@ -56,44 +55,45 @@ stringP = between (symbol "\"") (symbol "\"") (many (spaceChar <|> alphaNumChar 
 boolP :: Parser Bool
 boolP = True <$ symbol "#t" <|> False <$ symbol "#f"
 
-lambdaP :: Parser PrimitiveType
-lambdaP = parens (Lambda <$> (symbol "lambda" *> args) <*> procBody)
+lambdaP :: Parser SpecialFormAst
+lambdaP = Lambda <$> (symbol "lambda" *> args) <*> procBody
 
 
-specialFormP :: Parser SpecialForm
+specialFormP :: Parser SpecialFormAst
 specialFormP = choice [
     try . parens $ defineP,
     try . parens $ defineProcP,
+    try . parens $ lambdaP,
     try . parens $ ifP,
     try . parens $ assignP,
     try . parens $ letP,
     parens beginP
   ]
 
-defineP :: Parser SpecialForm
+defineP :: Parser SpecialFormAst
 defineP = symbol "define" *> ps
   where ps = Define <$> name <*> lispAstP
 
-defineProcP :: Parser SpecialForm
+defineProcP :: Parser SpecialFormAst
 defineProcP = symbol "define" *> ps
   where
     ps = do
       fname NE.:| args <- parens (NE.some name)
       DefineProc fname args <$> procBody
 
-assignP :: Parser SpecialForm
+assignP :: Parser SpecialFormAst
 assignP = symbol "set!" *> ps
   where ps = Assign <$> name <*> lispAstP
 
-beginP :: Parser SpecialForm
+beginP :: Parser SpecialFormAst
 beginP = symbol "begin" *> ps
   where ps = Begin <$> procBody
 
-ifP :: Parser SpecialForm
+ifP :: Parser SpecialFormAst
 ifP = symbol "if" *> ps
  where ps = If <$> lispAstP <*> lispAstP <*> lispAstP
 
-letP :: Parser SpecialForm
+letP :: Parser SpecialFormAst
 letP = symbol "let" *> ps
   where ps = Let <$> argPairs <*> procBody
         argPairs = parens (NE.some argPair)
