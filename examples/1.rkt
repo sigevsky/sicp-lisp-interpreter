@@ -1,5 +1,4 @@
-#lang racket
-(define tolerance 0.00001)
+(define tolerance 1)
 (define (fixed-point f first-guess)
   (define (close-enough? v1 v2)
     (< (abs (- v1 v2))
@@ -14,7 +13,7 @@
   (try first-guess))
 
 
-(define dx .00001)
+(define dx 1)
 (define (deriv g) (lambda (x) (/ (- (g (+ x dx)) (g x)) dx)))
 
 (define (newton-transform g)

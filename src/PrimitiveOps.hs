@@ -13,11 +13,16 @@ primitiveOps = M.fromList [
     (("print", 1), toDyn printP),
     (("readLn", 0), toDyn readLnP),
     (("+", 2), toDyn additionP),
-    (("*", 2), toDyn multP)
+    (("*", 2), toDyn multP),
+    (("abs", 1), toDyn absP)
   ]
 
 additionP (Numb a) (Numb b) = Just . return @IO . Numb $ (a + b)
 additionP _ _ = Nothing
+
+absP :: PrimitiveType -> Maybe (IO PrimitiveType)
+asbP (Numb a) = Just . return @IO . Numb $ abs a
+absP _ = Nothing
 
 multP (Numb a) (Numb b) = Just . return @IO . Numb $ (a * b)
 multP _ _ = Nothing

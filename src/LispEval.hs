@@ -49,7 +49,7 @@ evalM (Sf (Assign vname body)) = do
       _ -> throwError $ VarNotFound vname env
       
 evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Const (Lambda bindings body))))
-evalM (Sf (Begin procs)) = reduce (>>) (evalM <$> procs)
+evalM (Sf (Begin procs)) = evalMSequence procs
 evalM (Sf (Let argPairs body)) = evalM (App (Const (Lambda (toList $ fst <$> argPairs) body)) (toList $ snd <$> argPairs))
 evalM (App operator operands) = do
     evOpt <- evalM operator
@@ -71,13 +71,20 @@ applyM opName ops = catchError applyPrimOp handler
               env <- get
               let newFrame = M.fromList $ zip bindings ops
               put $ appendFrame newFrame env
-              evalM body
+              evalMSequence body
             (Lambda bindings _) | length bindings /= length ops -> throwError . ApError $ IncorrectNumOfArgs opName (length ops) (length bindings)
             _ -> throwError . ApError . ProcApplyError $ opName
           Nothing -> throwError . ApError $ NoDefProcedure opName env
       v -> throwError v
 
 liftError f (EvalT (StateT st)) = EvalT (StateT (withExceptT f . st))
+
+evalMSequence :: NL.NonEmpty LispAst -> LispEval
+evalMSequence procs = reduce (>>) (evalM <$> procs)
+
+evaluate :: LispAst -> IO (Either EvalError PrimitiveType)
+evaluate ast = runExceptT . fmap fst $ runStateT (runEval . evalM $ ast) (Env [M.empty])
+
 
 lookupInEnv :: String -> Env -> Maybe PrimitiveType
 lookupInEnv x (Env []) = Nothing

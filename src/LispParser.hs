@@ -13,12 +13,14 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..), head, tail)
 reservedWords = ["define", "lambda", "begin", "set!"]
 
 allowedSymbols :: Parser Char
-allowedSymbols = choice [char '&', char '*', char '/', char '-']
+allowedSymbols = choice $ char <$> ['&', '*', '/', '-', '?', '!']
 
 type Parser = Parsec Void String
 
 spaceConsumer :: Parser ()
-spaceConsumer = L.space space1 (L.skipLineComment ";") (L.skipBlockComment "#|" "|#")
+spaceConsumer = L.space (space1 <|> skipSome newline <|> skipSome tab)
+                        (L.skipLineComment ";")
+                        (L.skipBlockComment "#|" "|#")
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme spaceConsumer
@@ -37,19 +39,25 @@ name = lexeme $ do
 args :: Parser [String]
 args = parens (many name)
 
+procBody = NE.some lispAstP
+
 primitiveTypeP :: Parser PrimitiveType
 primitiveTypeP = choice [
     Unit <$ symbol "Unit",
     Numb <$> lexeme L.decimal,
+    Str <$> lexeme stringP,
     Bl <$> lexeme boolP,
     lambdaP
   ]
+
+stringP :: Parser String
+stringP = between (symbol "\"") (symbol "\"") (many (spaceChar <|> alphaNumChar <|> symbolChar <|> allowedSymbols))
 
 boolP :: Parser Bool
 boolP = True <$ symbol "#t" <|> False <$ symbol "#f"
 
 lambdaP :: Parser PrimitiveType
-lambdaP = parens (Lambda <$> (symbol "lambda" *> args) <*> lispAstP)
+lambdaP = parens (Lambda <$> (symbol "lambda" *> args) <*> procBody)
 
 
 specialFormP :: Parser SpecialForm
@@ -71,7 +79,7 @@ defineProcP = symbol "define" *> ps
   where
     ps = do
       fname NE.:| args <- parens (NE.some name)
-      DefineProc fname args <$> lispAstP
+      DefineProc fname args <$> procBody
 
 assignP :: Parser SpecialForm
 assignP = symbol "set!" *> ps
@@ -79,15 +87,15 @@ assignP = symbol "set!" *> ps
 
 beginP :: Parser SpecialForm
 beginP = symbol "begin" *> ps
-  where ps = Begin <$> NE.some lispAstP
+  where ps = Begin <$> procBody
 
 ifP :: Parser SpecialForm
 ifP = symbol "if" *> ps
  where ps = If <$> lispAstP <*> lispAstP <*> lispAstP
- 
+
 letP :: Parser SpecialForm
 letP = symbol "let" *> ps
-  where ps = Let <$> argPairs <*> lispAstP
+  where ps = Let <$> argPairs <*> procBody
         argPairs = parens (NE.some argPair)
         argPair = parens ((,) <$> name <*> lispAstP)
 
@@ -103,3 +111,6 @@ lispAstP = lexeme ps
         try $ Var <$> lexeme name,
         appP
       ]
+
+lispFileP :: Parser LispAst
+lispFileP = spaceConsumer *> (Sf . Begin <$> NE.some lispAstP)

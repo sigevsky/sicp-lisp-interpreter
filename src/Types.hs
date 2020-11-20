@@ -6,19 +6,19 @@ import GHC.Generics
 import Data.Dynamic
 import Data.List.NonEmpty as NL
 import qualified Data.Map as M
-
+import Data.List (intercalate, foldl')
 data PrimitiveType = Unit |
-  Numb Integer |
+  Numb Int |
   Str String |
   Bl Bool |
-  Lambda [String] LispAst deriving (Eq, Generic, Show, Typeable)
+  Lambda [String] (NL.NonEmpty LispAst) deriving (Eq, Generic, Show, Typeable)
 
 data SpecialForm =
   Define String LispAst |
-  DefineProc String [String] LispAst |
+  DefineProc String [String] (NL.NonEmpty LispAst) |
   Assign String LispAst |
   Begin (NL.NonEmpty LispAst) |
-  Let (NL.NonEmpty (String, LispAst)) LispAst |
+  Let (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
   If LispAst LispAst LispAst deriving (Eq, Generic, Show, Typeable)
 
 data LispAst =
@@ -44,8 +44,11 @@ data EvalError = VarNotFound String Env |
   InvalidOperatorType PrimitiveType |
   ApError ApplyError
 
+instance Show Env where
+  show (Env e) = foldl' (\s env -> ("|" <> intercalate ", " (M.keys env) <> "|") ++ s) "" e
+
 instance Show EvalError where
-  show (VarNotFound x env) = "Failed to find variable " <> x <> " in the current env"
+  show (VarNotFound x env) = "Failed to find variable '" <> x <> "' in the current env " <> show env
   show IncorrectCondType = "Provided condition is not of the type boolean"
   show (InvalidOperatorType pt) = "Operator name has invalid type " <> show pt
   show (ApError e) = show e
