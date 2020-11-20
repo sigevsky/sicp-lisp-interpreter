@@ -12,6 +12,9 @@ import qualified Data.List.NonEmpty as NE (NonEmpty(..), head, tail)
 
 reservedWords = ["define", "lambda", "begin", "set!"]
 
+allowedSymbols :: Parser Char
+allowedSymbols = choice [char '&', char '*', char '/', char '-']
+
 type Parser = Parsec Void String
 
 spaceConsumer :: Parser ()
@@ -26,7 +29,7 @@ parens = between (symbol "(") (symbol ")")
 
 name :: Parser String
 name = lexeme $ do
-     nm <- some alphaNumChar
+     nm <- some (alphaNumChar <|> symbolChar <|> allowedSymbols)
      if nm `elem` reservedWords
        then fail $ nm <> " is a reserved word"
        else return nm
@@ -55,7 +58,8 @@ specialFormP = choice [
     try . parens $ defineProcP,
     try . parens $ ifP,
     try . parens $ assignP,
-    beginP
+    try . parens $ letP,
+    parens beginP
   ]
 
 defineP :: Parser SpecialForm
@@ -80,6 +84,12 @@ beginP = symbol "begin" *> ps
 ifP :: Parser SpecialForm
 ifP = symbol "if" *> ps
  where ps = If <$> lispAstP <*> lispAstP <*> lispAstP
+ 
+letP :: Parser SpecialForm
+letP = symbol "let" *> ps
+  where ps = Let <$> argPairs <*> lispAstP
+        argPairs = parens (NE.some argPair)
+        argPair = parens ((,) <$> name <*> lispAstP)
 
 lispAstP :: Parser LispAst
 lispAstP = lexeme ps

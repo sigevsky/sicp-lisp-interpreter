@@ -18,6 +18,7 @@ data SpecialForm =
   DefineProc String [String] LispAst |
   Assign String LispAst |
   Begin (NL.NonEmpty LispAst) |
+  Let (NL.NonEmpty (String, LispAst)) LispAst |
   If LispAst LispAst LispAst deriving (Eq, Generic, Show, Typeable)
 
 data LispAst =

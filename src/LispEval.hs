@@ -4,7 +4,7 @@ module LispEval where
 
 import qualified Data.Map as M
 import Data.Either.Combinators (maybeToRight)
-import Data.Foldable (foldl')
+import Data.Foldable (foldl', toList)
 import Control.Monad
 import Control.Monad.Except
 import Control.Applicative (Applicative, Alternative)
@@ -47,8 +47,10 @@ evalM (Sf (Assign vname body)) = do
         put (defineInEnv vname evBody env)
         return Unit
       _ -> throwError $ VarNotFound vname env
+      
 evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Const (Lambda bindings body))))
 evalM (Sf (Begin procs)) = reduce (>>) (evalM <$> procs)
+evalM (Sf (Let argPairs body)) = evalM (App (Const (Lambda (toList $ fst <$> argPairs) body)) (toList $ snd <$> argPairs))
 evalM (App operator operands) = do
     evOpt <- evalM operator
     args  <- sequence (evalM <$> operands)
