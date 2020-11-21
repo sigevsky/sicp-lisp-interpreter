@@ -38,6 +38,7 @@ data SpecialFormAst =
   Begin (NL.NonEmpty LispAst) |
   Let (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
   Lambda [String] (NL.NonEmpty LispAst) |
+  Cond (NonEmpty (LispAst, LispAst)) (Maybe LispAst) |
   If LispAst LispAst LispAst deriving (Eq, Generic, Show, Typeable)
 
 data LispAst =
@@ -60,6 +61,7 @@ data ApplyError = NoDefProcedure String Env |
   PrimProcApplyErr PrimProcApplyError
 data EvalError = VarNotFound String Env |
   IncorrectCondType |
+  IncorrectNumOfConditions |
   InvalidOperatorType RtType |
   ApError ApplyError
 
@@ -78,6 +80,7 @@ instance Show EvalError where
   show (VarNotFound x env) = "Failed to find variable '" <> x <> "' in the current env " <> show env
   show IncorrectCondType = "Provided condition is not of the type boolean"
   show (InvalidOperatorType pt) = "Operator name has invalid type " <> show pt
+  show IncorrectNumOfConditions = "Cond operator is provided with no else clause end less then two conditional sections"
   show (ApError e) = show e
 
 instance Show ApplyError where

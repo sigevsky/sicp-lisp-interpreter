@@ -14,7 +14,11 @@ dynamicMappings = M.fromList [
     (("readLn", 0), toDyn readLnP),
     (("+", 2), toDyn additionP),
     (("*", 2), toDyn multP),
-    (("abs", 1), toDyn absP)
+    (("abs", 1), toDyn absP),
+    ((">", 2), toDyn gtP),
+    (("<", 2), toDyn ltP),
+    (("=", 2), toDyn eqNumP),
+    (("eq?", 2), toDyn eqP)
   ]
 
 primitivesOps :: [(String, RtType)]
@@ -27,6 +31,18 @@ additionP _ _ = Nothing
 absP :: RtType -> Maybe (IO RtType)
 asbP (Numb a) = Just . return @IO . Numb $ abs a
 absP _ = Nothing
+
+eqP :: RtType -> RtType -> Maybe (IO RtType)
+eqP a b = Just . return @IO . Bl $ (a == b)
+
+ltP (Numb a) (Numb b) = Just . return @IO . Bl $ (a < b)
+ltP _ _ = Nothing
+
+gtP (Numb a) (Numb b) = Just . return @IO . Bl $ (a > b)
+gtP _ _ = Nothing
+
+eqNumP (Numb a) (Numb b) = Just . return @IO . Bl $ (a == b)
+eqNumP _ _ = Nothing
 
 multP (Numb a) (Numb b) = Just . return @IO . Numb $ (a * b)
 multP _ _ = Nothing

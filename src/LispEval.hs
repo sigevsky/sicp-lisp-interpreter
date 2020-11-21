@@ -1,9 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 module LispEval where
 
 import qualified Data.Map as M
 import Data.Either.Combinators (maybeToRight)
+import Data.Maybe (fromMaybe)
 import Data.Foldable (foldl', toList)
 import Control.Monad
 import Control.Monad.Except
@@ -11,7 +11,7 @@ import Control.Applicative (Applicative, Alternative)
 import Control.Monad.Cont (MonadCont)
 import Control.Monad.State (MonadState, StateT (..), get, put, gets)
 import Control.Monad.Writer (MonadWriter)
-import qualified Data.List.NonEmpty as NL
+import qualified Data.List.NonEmpty as NE
 import Data.Dynamic
 import PrimitiveOps (applyPrimitive, primitivesOps)
 import Types
@@ -34,6 +34,11 @@ evalM (Sf (If cond th els)) = do
     case evaluatedCond of
       Bl b -> evalM (if b then th else els)
       _ -> throwError IncorrectCondType
+evalM (Sf (Cond l mbElse)) = 
+    let
+      (lastCond, lastThen) NE.:| lst = NE.reverse l
+      lastIf = Sf (If lastCond lastThen (fromMaybe (Const UnitAst) mbElse))
+    in evalM $ foldl' (\els (cond, res) -> Sf (If cond res els)) lastIf lst
 evalM (Sf (Define vname body)) = do
     evBody <- evalM body
     env  <- get
@@ -69,7 +74,7 @@ evalM (App operator operands) = do
 
 liftError f (EvalT (StateT st)) = EvalT (StateT (withExceptT f . st))
 
-evalMSequence :: NL.NonEmpty LispAst -> LispEval
+evalMSequence :: NE.NonEmpty LispAst -> LispEval
 evalMSequence procs = reduce (>>) (evalM <$> procs)
 
 evaluate :: LispAst -> IO (Either EvalError RtType)
@@ -96,4 +101,4 @@ discardState f = do
   put s
   return a
 
-reduce f l = foldl' f (NL.head l) (NL.tail l)
+reduce f l = foldl' f (NE.head l) (NE.tail l)
