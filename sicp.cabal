@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bbc5963c4cdb9e28c2fde294e9e5633f23b9408504aa2d29a2b084b9410b253b
+-- hash: f3d9b2897b73cb0034e02db3c6168ef7c4c97d475337d7c7df36c45b6759ccc4
 
 name:           sicp
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      ExprExpander
       Lib
       LispEval
       LispParser
@@ -76,7 +77,7 @@ test-suite sicp-test
       Paths_sicp
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
       base >=4.7 && <5
     , containers

@@ -10,7 +10,9 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Control.Monad.Combinators.NonEmpty as NE
 import qualified Data.List.NonEmpty as NE (NonEmpty(..), head, tail)
 
-reservedWords = ["define", "lambda", "begin", "set!", "cond", "else", "let", "let*"]
+reservedWords = ["define", "lambda", "begin",
+                 "set!", "cond", "else",
+                 "let", "let*", "and", "or"]
 
 allowedSymbols :: Parser Char
 allowedSymbols = choice $ char <$> ['&', '*', '/', '-', '?', '!', '\'']
@@ -68,6 +70,8 @@ specialFormP = choice [
     try . parens $ assignP,
     try . parens $ letP,
     try . parens $ condP,
+    try . parens $ andP,
+    try . parens $ orP,
     parens beginP
   ]
 
@@ -93,6 +97,14 @@ beginP = symbol "begin" *> ps
 ifP :: Parser SpecialFormSyntax
 ifP = symbol "if" *> ps
   where ps = IfS <$> lispAstP <*> lispAstP <*> lispAstP
+
+andP :: Parser SpecialFormSyntax
+andP = symbol "and" *> ps
+  where ps = AndS <$> NE.some lispAstP
+
+orP :: Parser SpecialFormSyntax
+orP = symbol "or" *> ps
+  where ps = OrS <$> NE.some lispAstP
 
 condP :: Parser SpecialFormSyntax
 condP = symbol "cond" *> ps

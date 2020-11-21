@@ -62,7 +62,9 @@ data SpecialFormSyntax =
   LetAsteriskS (NL.NonEmpty (String, LispSyntax)) (NL.NonEmpty LispSyntax) |
   LambdaS [String] (NL.NonEmpty LispSyntax) |
   CondS (NonEmpty (LispSyntax, LispSyntax)) (Maybe LispSyntax) |
-  IfS LispSyntax LispSyntax LispSyntax deriving (Eq, Generic, Show, Typeable)
+  IfS LispSyntax LispSyntax LispSyntax |
+  AndS (NonEmpty LispSyntax) |
+  OrS (NonEmpty LispSyntax) deriving (Eq, Generic, Show, Typeable)
 
 data LispSyntax =
   ConstS PrimitiveSyntax |
