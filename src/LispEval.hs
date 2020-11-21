@@ -29,22 +29,17 @@ evalM (Var x) = do
   case lookupInEnv x env of
     Just v -> pure v
     Nothing -> throwError (VarNotFound x env)
-evalM (Sf (If cond th els)) = do
+evalM (If cond th els) = do
     evaluatedCond <- evalM cond
     case evaluatedCond of
       Bl b -> evalM (if b then th else els)
       _ -> throwError IncorrectCondType
-evalM (Sf (Cond l mbElse)) =
-    let
-      (lastCond, lastThen) NE.:| lst = NE.reverse l
-      lastIf = Sf (If lastCond lastThen (fromMaybe (Const UnitAst) mbElse))
-    in evalM $ foldl' (\els (cond, res) -> Sf (If cond res els)) lastIf lst
-evalM (Sf (Define vname body)) = do
+evalM (Define vname body) = do
     evBody <- evalM body
     env  <- get
     put (defineInEnv vname evBody env)
     return Unit
-evalM (Sf (Assign vname body)) = do
+evalM (Assign vname body) = do
     env <- get
     case lookupInEnv vname env of
       Just _ -> do
@@ -52,17 +47,8 @@ evalM (Sf (Assign vname body)) = do
         put (defineInEnv vname evBody env)
         return Unit
       _ -> throwError $ VarNotFound vname env
-
-evalM (Sf (Lambda bindings body)) = gets (Proc . Closure bindings body)
-evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Sf (Lambda bindings body))))
-evalM (Sf (Begin procs)) = evalMSequence procs
-evalM (Sf (Let argPairs body)) = evalM (App (Sf (Lambda (toList $ fst <$> argPairs) body)) (toList $ snd <$> argPairs))
-evalM (Sf (LetAsterisk argPairs body)) =
-    let
-      (lastBind, lastArg) NE.:| lst = NE.reverse argPairs
-      lastL = App (Sf (Lambda [lastBind] body)) [lastArg]
-      desugared = foldl' (\nextLambda (bind, arg) -> App (Sf (Lambda [bind] (nextLambda NE.:| []))) [arg]) lastL lst
-    in evalM desugared
+evalM (Lambda bindings body) = gets (Proc . Closure bindings body)
+evalM (Begin procs) = evalMSequence procs
 evalM (App operator operands) = do
     evOpt <- evalM operator
     args  <- sequence (evalM <$> operands)

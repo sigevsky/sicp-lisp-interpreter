@@ -25,28 +25,50 @@ primitiveToRuntimeType (NumbAst n) = Numb n
 primitiveToRuntimeType (StrAst s) = Str s
 primitiveToRuntimeType (BlAst b) = Bl b
 
+primitiveSyntaxToAst :: PrimitiveSyntax -> PrimitiveAst
+primitiveSyntaxToAst UnitS = UnitAst
+primitiveSyntaxToAst (NumbS n) = NumbAst n
+primitiveSyntaxToAst (StrS s) = StrAst s
+primitiveSyntaxToAst (BlS b) = BlAst b
+
 data PrimitiveAst =
   UnitAst |
   NumbAst Int |
   StrAst String |
   BlAst Bool deriving (Eq, Generic, Show, Typeable)
 
-data SpecialFormAst =
-  Define String LispAst |
-  DefineProc String [String] (NL.NonEmpty LispAst) |
-  Assign String LispAst |
-  Begin (NL.NonEmpty LispAst) |
-  Let (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
-  LetAsterisk (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
-  Lambda [String] (NL.NonEmpty LispAst) |
-  Cond (NonEmpty (LispAst, LispAst)) (Maybe LispAst) |
-  If LispAst LispAst LispAst deriving (Eq, Generic, Show, Typeable)
-
 data LispAst =
   Const PrimitiveAst |
   Var String |
-  Sf SpecialFormAst |
+  Define String LispAst |
+  Assign String LispAst |
+  Begin (NL.NonEmpty LispAst) |
+  Lambda [String] (NL.NonEmpty LispAst) |
+  If LispAst LispAst LispAst |
   App LispAst [LispAst] deriving (Eq, Generic, Show, Typeable)
+
+data PrimitiveSyntax =
+  UnitS |
+  NumbS Int |
+  StrS String |
+  BlS Bool deriving (Eq, Generic, Show, Typeable)
+
+data SpecialFormSyntax =
+  DefineS String LispSyntax |
+  DefineProcS String [String] (NL.NonEmpty LispSyntax) |
+  AssignS String LispSyntax |
+  BeginS (NL.NonEmpty LispSyntax) |
+  LetS (NL.NonEmpty (String, LispSyntax)) (NL.NonEmpty LispSyntax) |
+  LetAsteriskS (NL.NonEmpty (String, LispSyntax)) (NL.NonEmpty LispSyntax) |
+  LambdaS [String] (NL.NonEmpty LispSyntax) |
+  CondS (NonEmpty (LispSyntax, LispSyntax)) (Maybe LispSyntax) |
+  IfS LispSyntax LispSyntax LispSyntax deriving (Eq, Generic, Show, Typeable)
+
+data LispSyntax =
+  ConstS PrimitiveSyntax |
+  VarS String |
+  SfSyntax SpecialFormSyntax |
+  AppS LispSyntax [LispSyntax] deriving (Eq, Generic, Show, Typeable)
 
 data PrimProcApplyError =
   ProcedureNotFound String |
