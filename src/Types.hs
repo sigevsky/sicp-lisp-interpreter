@@ -37,6 +37,7 @@ data SpecialFormAst =
   Assign String LispAst |
   Begin (NL.NonEmpty LispAst) |
   Let (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
+  LetAsterisk (NL.NonEmpty (String, LispAst)) (NL.NonEmpty LispAst) |
   Lambda [String] (NL.NonEmpty LispAst) |
   Cond (NonEmpty (LispAst, LispAst)) (Maybe LispAst) |
   If LispAst LispAst LispAst deriving (Eq, Generic, Show, Typeable)

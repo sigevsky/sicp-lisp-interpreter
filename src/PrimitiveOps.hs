@@ -10,7 +10,7 @@ import Control.Monad.Except
 
 dynamicMappings :: M.Map (String, Int) Dynamic
 dynamicMappings = M.fromList [
-    (("print", 1), toDyn printP),
+    (("display", 1), toDyn printP),
     (("readLn", 0), toDyn readLnP),
     (("+", 2), toDyn additionP),
     (("*", 2), toDyn multP),

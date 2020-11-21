@@ -4,4 +4,6 @@
         ((eq? lang "ru") "privet")
         (else "|||||||||")))
 
-(print (hello "ruw"))
+(display (hello "ru"))
+
+(display (let* ((x 1) (y (+ x 1))) (+ x y)))

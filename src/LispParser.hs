@@ -10,7 +10,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Control.Monad.Combinators.NonEmpty as NE
 import qualified Data.List.NonEmpty as NE (NonEmpty(..), head, tail)
 
-reservedWords = ["define", "lambda", "begin", "set!", "cond", "else"]
+reservedWords = ["define", "lambda", "begin", "set!", "cond", "else", "let", "let*"]
 
 allowedSymbols :: Parser Char
 allowedSymbols = choice $ char <$> ['&', '*', '/', '-', '?', '!', '\'']
@@ -102,8 +102,9 @@ condP = symbol "cond" *> ps
         ps = Cond <$> conds <*> els
 
 letP :: Parser SpecialFormAst
-letP = symbol "let" *> ps
-  where ps = Let <$> argPairs <*> procBody
+letP = try (symbol "let*" *> lta) <|> symbol "let" *> lt
+  where lt = Let <$> argPairs <*> procBody
+        lta = LetAsterisk <$> argPairs <*> procBody
         argPairs = parens (NE.some argPair)
         argPair = parens ((,) <$> name <*> lispAstP)
 

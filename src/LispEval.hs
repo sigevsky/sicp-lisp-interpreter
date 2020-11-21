@@ -34,7 +34,7 @@ evalM (Sf (If cond th els)) = do
     case evaluatedCond of
       Bl b -> evalM (if b then th else els)
       _ -> throwError IncorrectCondType
-evalM (Sf (Cond l mbElse)) = 
+evalM (Sf (Cond l mbElse)) =
     let
       (lastCond, lastThen) NE.:| lst = NE.reverse l
       lastIf = Sf (If lastCond lastThen (fromMaybe (Const UnitAst) mbElse))
@@ -57,6 +57,12 @@ evalM (Sf (Lambda bindings body)) = gets (Proc . Closure bindings body)
 evalM (Sf (DefineProc name bindings body)) = evalM (Sf (Define name (Sf (Lambda bindings body))))
 evalM (Sf (Begin procs)) = evalMSequence procs
 evalM (Sf (Let argPairs body)) = evalM (App (Sf (Lambda (toList $ fst <$> argPairs) body)) (toList $ snd <$> argPairs))
+evalM (Sf (LetAsterisk argPairs body)) =
+    let
+      (lastBind, lastArg) NE.:| lst = NE.reverse argPairs
+      lastL = App (Sf (Lambda [lastBind] body)) [lastArg]
+      desugared = foldl' (\nextLambda (bind, arg) -> App (Sf (Lambda [bind] (nextLambda NE.:| []))) [arg]) lastL lst
+    in evalM desugared
 evalM (App operator operands) = do
     evOpt <- evalM operator
     args  <- sequence (evalM <$> operands)
