@@ -26,13 +26,22 @@ expandSyntax (SfSyntax (CondS l mbElse)) =
     in foldl' (\els (cond, res) -> If cond res els) lastIf lst
 expandSyntax (SfSyntax (DefineProcS name bindings body)) = Define name (Lambda bindings (expandSyntax <$> body))
 expandSyntax (SfSyntax (LetS argPairs body)) = App (Lambda (toList $ fst <$> argPairs) (expandSyntax <$> body))
-                                             (toList $ snd . fmap expandSyntax <$> argPairs)
+                                                   (toList $ snd . fmap expandSyntax <$> argPairs)
 expandSyntax (SfSyntax (LetAsteriskS argPairs body)) =
     let
       (lastBind, lastArg) NE.:| lst = NE.reverse (fmap (fmap expandSyntax) argPairs)
       lastL = App (Lambda [lastBind] (expandSyntax <$> body)) [lastArg]
       desugared = foldl' (\nextLambda (bind, arg) -> App (Lambda [bind] (nextLambda NE.:| [])) [arg]) lastL lst
     in desugared
+expandSyntax (SfSyntax (NamedLetS name argPairs body)) =
+    let
+      eBody = expandSyntax <$> body
+      bindings = toList $ fst <$> argPairs
+      args = snd . fmap expandSyntax <$> argPairs
+      self = Lambda bindings eBody
+      letc = App (Lambda (toList $ fst <$> argPairs) eBody)
+                 (toList $ snd . fmap expandSyntax <$> argPairs)
+    in App (Lambda [] (Define name self NE.:| [letc])) []
 expandSyntax (SfSyntax (OrS args)) = 
   let
       lastCond NE.:| lst = NE.reverse (expandSyntax <$> args)

@@ -13,6 +13,7 @@ dynamicMappings = M.fromList [
     (("display", 1), toDyn printP),
     (("readLn", 0), toDyn readLnP),
     (("+", 2), toDyn additionP),
+    (("-", 2), toDyn substractP),
     (("*", 2), toDyn multP),
     (("abs", 1), toDyn absP),
     ((">", 2), toDyn gtP),
@@ -27,6 +28,9 @@ primitivesOps = fmap (\key -> (fst key, Proc . uncurry PrimProc $ key)) keys
 
 additionP (Numb a) (Numb b) = Just . return @IO . Numb $ (a + b)
 additionP _ _ = Nothing
+
+substractP (Numb a) (Numb b) = Just . return @IO . Numb $ (a - b)
+substractP _ _ = Nothing
 
 absP :: RtType -> Maybe (IO RtType)
 asbP (Numb a) = Just . return @IO . Numb $ abs a

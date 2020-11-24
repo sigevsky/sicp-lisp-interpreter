@@ -6,6 +6,7 @@ import GHC.Generics
 import Data.Dynamic
 import Data.List.NonEmpty as NL
 import qualified Data.Map as M
+import Data.IORef
 import Data.List (intercalate, foldl')
 
 data RtProc =
@@ -60,6 +61,7 @@ data SpecialFormSyntax =
   BeginS (NL.NonEmpty LispSyntax) |
   LetS (NL.NonEmpty (String, LispSyntax)) (NL.NonEmpty LispSyntax) |
   LetAsteriskS (NL.NonEmpty (String, LispSyntax)) (NL.NonEmpty LispSyntax) |
+  NamedLetS String (NL.NonEmpty (String, LispSyntax)) (NL.NonEmpty LispSyntax) |
   LambdaS [String] (NL.NonEmpty LispSyntax) |
   CondS (NonEmpty (LispSyntax, LispSyntax)) (Maybe LispSyntax) |
   IfS LispSyntax LispSyntax LispSyntax |
@@ -78,20 +80,30 @@ data PrimProcApplyError =
   InvalidProcedure String |
   FailedToApplyArg Int String
 
-newtype Env = Env [M.Map String RtType] deriving (Eq, Generic, Typeable)
+type Frame = M.Map String RtType
+newtype Env = Env [IORef Frame] deriving (Eq, Generic, Typeable)
 
-data ApplyError = NoDefProcedure String Env |
+newtype FixedEnv = FixedEnv [Frame]
+
+data ApplyError = NoDefProcedure String FixedEnv |
   ProcApplyError String |
   IncorrectNumOfArgs String Int Int |
   PrimProcApplyErr PrimProcApplyError
-data EvalError = VarNotFound String Env |
+data EvalError = VarNotFound String FixedEnv |
   IncorrectCondType |
   IncorrectNumOfConditions |
   InvalidOperatorType RtType |
-  ApError ApplyError
+  AccessingUninitializedVar String |
+  ApError ApplyError |
+  EmptyEnvAccess 
 
-instance Show Env where
-  show (Env e) = foldl' (\s env -> ("|" <> intercalate ", " (M.keys env) <> "|") ++ s) "" e
+isPrimitiveProcVar :: RtType -> Bool
+isPrimitiveProcVar (Proc (PrimProc _ _)) = True
+isPrimitiveProcVar _                     = False
+
+instance Show FixedEnv where
+  show (FixedEnv e) = foldl' (\s env -> ("|" <> intercalate ", " (M.keys env) <> "|") ++ s) "" e
+    where vars env = fmap show . Prelude.filter (not . isPrimitiveProcVar . snd) $ Prelude.zip (M.keys env) (M.elems env)
 
 instance Show RtProc where
   show Closure {} = "<procedure>"
@@ -106,6 +118,7 @@ instance Show EvalError where
   show IncorrectCondType = "Provided condition is not of the type boolean"
   show (InvalidOperatorType pt) = "Operator name has invalid type " <> show pt
   show IncorrectNumOfConditions = "Cond operator is provided with no else clause end less then two conditional sections"
+  show (AccessingUninitializedVar varName) = "Accessing not yet initialized variable " <> varName
   show (ApError e) = show e
 
 instance Show ApplyError where

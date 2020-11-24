@@ -114,9 +114,10 @@ condP = symbol "cond" *> ps
         ps = CondS <$> conds <*> els
 
 letP :: Parser SpecialFormSyntax
-letP = try (symbol "let*" *> lta) <|> symbol "let" *> lt
+letP = try (symbol "let*" *> lta) <|> try (symbol "let" *> ltnamed) <|> symbol "let" *> lt
   where lt = LetS <$> argPairs <*> procBody
         lta = LetAsteriskS <$> argPairs <*> procBody
+        ltnamed = NamedLetS <$> name <*> argPairs <*> procBody
         argPairs = parens (NE.some argPair)
         argPair = parens ((,) <$> name <*> lispAstP)
 

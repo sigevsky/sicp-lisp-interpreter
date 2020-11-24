@@ -1,13 +1,20 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Test where
 
-import Types
-import LispEval
+import Types hiding (Env(..))
+import LispEval hiding (discardState)
 import Text.Megaparsec
 import Text.Megaparsec.Error
 import LispParser
 import Shower
 import GHC.TypeNats
 import ExprExpander (expandSyntax)
+import qualified Data.Map as M
+import Control.Monad.State
+import Control.Monad.Reader
+import Data.IORef
+import Data.List (intercalate)
 
 testStr parser str = case runParser parser "blah" str of
              Right v -> printer v
