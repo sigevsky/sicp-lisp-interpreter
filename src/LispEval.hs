@@ -57,11 +57,6 @@ evalM (App operator operands) = do
   where
     applyPrimOp opName ops = EvalT . lift $ withExceptT (ApError . PrimProcApplyErr) (applyPrimitive opName ops)
 
-extractDefinitions :: [LispAst] -> [String]
-extractDefinitions = foldl' f []
-  where f acc (Define x _) = x : acc
-        f acc _ = acc
-
 evalMSequence :: NE.NonEmpty LispAst -> LispEval RtType
 evalMSequence procs = reduce (>>) (evalM <$> procs)
 
