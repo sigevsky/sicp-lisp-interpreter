@@ -13,10 +13,18 @@
     (set! failted-attempts-count (+ 1 failted-attempts-count))
     failted-attempts-count)
   (define (dispatch m password)
-    (cond ((not (equal? acc-pass password)) (if (= 7 (incFailedAttempts)) (call-the-cops) "Incorrect password passed"))
-          ((eq? m 'withdraw) withdraw)
-          ((eq? m 'deposit) deposit)
+    (cond ((not (equal? acc-pass password)) (if (= 3 (incFailedAttempts)) (call-the-cops) "Incorrect password passed"))
+          ((eq? m "withdraw") withdraw)
+          ((eq? m "deposit") deposit)
           (else (error "Unknown" m))))
   dispatch)
 
-;(((make-account 100 'hola) 'withdraw 'hola) 50)
+
+(define acc (make-account 100 "hola"))
+
+(display (acc "withdraw" "1"))
+(display (acc "withdraw" "1"))
+(display (acc "withdraw" "1"))
+((acc "withdraw" "hola") 40)
+((acc "withdraw" "hola") 11)
+((acc "withdraw" "hola") 14)

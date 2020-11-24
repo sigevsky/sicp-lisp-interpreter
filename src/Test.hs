@@ -15,6 +15,7 @@ import Control.Monad.State
 import Control.Monad.Reader
 import Data.IORef
 import Data.List (intercalate)
+import Debug.Trace (traceM)
 
 testStr parser str = case runParser parser "blah" str of
              Right v -> printer v
@@ -35,3 +36,6 @@ expandFile fname = do
      case runParser lispFileP "blah" fdata of
         Right v -> printer (expandSyntax v)
         Left v -> putStrLn $ errorBundlePretty v
+
+
+trEnv = (show <$> freezeEnv) >>= traceM

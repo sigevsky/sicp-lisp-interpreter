@@ -19,12 +19,22 @@ dynamicMappings = M.fromList [
     ((">", 2), toDyn gtP),
     (("<", 2), toDyn ltP),
     (("=", 2), toDyn eqNumP),
-    (("eq?", 2), toDyn eqP)
+    ((">=", 2), toDyn gteP),
+    (("eq?", 2), toDyn eqP),
+    (("equal?", 2), toDyn eqP),
+    (("not", 1), toDyn notP)
   ]
 
 primitivesOps :: [(String, RtType)]
 primitivesOps = fmap (\key -> (fst key, Proc . uncurry PrimProc $ key)) keys
   where keys = fmap fst . M.toList $ dynamicMappings
+
+gteP (Numb a) (Numb b) = Just . return @IO . Bl $ (a >= b)
+gteP _ _ = Nothing
+
+
+notP (Bl b) = Just . return @IO . Bl $ not b
+notP _ = Nothing
 
 additionP (Numb a) (Numb b) = Just . return @IO . Numb $ (a + b)
 additionP _ _ = Nothing

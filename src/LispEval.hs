@@ -35,13 +35,11 @@ evalM (If cond th els) = do
       _ -> throwError IncorrectCondType
 evalM (Define vname body) = do
     evBody <- evalM body
-    putInEnv vname evBody
+    putInCurrentFrame vname evBody
 
 evalM (Assign vname body) = do
-    -- throws if var is not found
-    _ <- lookupInEnv vname
     evBody <- evalM body
-    putInEnv vname evBody
+    updateInEnv vname evBody
 
 evalM (Lambda bindings body) = asks (Proc . Closure bindings body)
 evalM (Begin procs) = evalMSequence procs
@@ -51,7 +49,7 @@ evalM (App operator operands) = do
     case evOpt of
       Proc (Closure bindings body procEnv) | length bindings == length args -> do
           newFrame <- liftIO (newIORef (M.fromList $ zip bindings args))
-          local (appendFrame newFrame) $ evalMSequence body
+          local (\_ -> appendFrame newFrame procEnv) $ evalMSequence body
       Proc (PrimProc opName bindNum) | bindNum == length args -> applyPrimOp opName args
       Proc (Closure bindings body _)  | length bindings /= length args -> throwError . ApError $ IncorrectNumOfArgs "lambda" (length args) (length bindings)
       Proc (PrimProc opName bindNum) | bindNum /= length args -> throwError . ApError $ IncorrectNumOfArgs opName (length args) bindNum
@@ -79,19 +77,31 @@ freezeEnv = ask >>= \(Env e) -> liftIO (FixedEnv <$> traverse readIORef e)
 lookupInEnv :: String -> LispEval RtType
 lookupInEnv x = do
   env <- ask
-  findVar x env
+  findVar env
   where
-    findVar x (Env []) =  freezeEnv >>= \fenv -> throwError (VarNotFound x fenv)
-    findVar x (Env (e:es)) = do
+    findVar (Env []) =  freezeEnv >>= \fenv -> throwError (VarNotFound x fenv)
+    findVar (Env (e:es)) = do
       frame <- liftIO $ readIORef e
       case M.lookup x frame of
         Just s -> pure s
-        Nothing -> findVar x (Env es)
+        Nothing -> findVar (Env es)
 
-putInEnv :: String -> RtType -> LispEval RtType
-putInEnv s v = ask >>= \case 
+updateInEnv :: String -> RtType -> LispEval RtType
+updateInEnv key val = do
+  env <- ask
+  findAndReplace env
+  where
+    findAndReplace (Env []) =  freezeEnv >>= \fenv -> throwError (VarNotFound key fenv)
+    findAndReplace (Env (e:es)) = do
+      frame <- liftIO $ readIORef e
+      case M.lookup key frame of
+        Just s -> liftIO (modifyIORef e (M.insert key val)) >> pure Unit
+        Nothing -> findAndReplace (Env es)
+
+putInCurrentFrame :: String -> RtType -> LispEval RtType
+putInCurrentFrame s v = ask >>= \case
   Env [] -> throwError EmptyEnvAccess
-  Env (e:es) -> liftIO $ modifyIORef e (M.insert s v) >> pure Unit
+  Env (e:es) -> liftIO (modifyIORef e (M.insert s v)) >> pure Unit
 
 appendFrame :: IORef Frame -> Env -> Env
 appendFrame m (Env ms) = Env (m:ms)

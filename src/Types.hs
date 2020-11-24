@@ -102,7 +102,7 @@ isPrimitiveProcVar (Proc (PrimProc _ _)) = True
 isPrimitiveProcVar _                     = False
 
 instance Show FixedEnv where
-  show (FixedEnv e) = foldl' (\s env -> ("|" <> intercalate ", " (M.keys env) <> "|") ++ s) "" e
+  show (FixedEnv e) = foldl' (\s env -> ("|" <> intercalate ", " (vars env) <> "|") ++ s) "" e
     where vars env = fmap show . Prelude.filter (not . isPrimitiveProcVar . snd) $ Prelude.zip (M.keys env) (M.elems env)
 
 instance Show RtProc where
